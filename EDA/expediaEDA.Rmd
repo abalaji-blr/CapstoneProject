@@ -1,0 +1,83 @@
+---
+title: "Expedia Hotel Recommendation - Initial Analysis"
+author: "Anandan Balaji"
+date: "12 May 2016"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This R Markdown doucment illustrates the different plots for some of the data fields related to the Capstone Project - Expedia Hotel Recommendation.
+
+The train data is huge - roughly 4GB. So, inorder to load and render fast, first 25K records were extracted and the following plots are generated for initial data analysis process.
+
+```{r train dataset}
+# read 25 K
+train_df <- read.csv(file = "train.25000.csv")
+
+library(ggplot2)
+```
+
+## site_name
+
+```{r plot0, echo=FALSE}
+ggplot(train_df, aes(site_name)) + geom_bar(fill = "purple")
+```
+
+## posa_continent - current user location
+```{r plot1, echo=FALSE}
+ggplot(train_df, aes(posa_continent)) + geom_bar(fill = "brown")
+```
+
+## hotel_continent - destination location
+
+```{r plot2, echo=FALSE}
+ggplot(train_df, aes(hotel_continent)) + geom_bar(fill = "green")
+```
+
+## user_id
+
+```{r plot3, echo=FALSE}
+ggplot(train_df, aes(user_id)) + geom_bar(fill = "blue")
+```
+
+## is_mobile 
+
+```{r plot4, echo=FALSE}
+ggplot(train_df, aes(is_mobile)) + geom_bar(fill = "orange")
+```
+
+## is_package - hotel / hotel + air
+ 
+```{r plot5, echo=FALSE}
+ggplot(train_df, aes(is_package)) + geom_bar(fill = "green")
+```
+
+## srch_adults_cnt
+
+```{r plot6, echo=FALSE}
+ggplot(train_df, aes(srch_adults_cnt)) + geom_bar(fill = "red")
+```
+
+## srch_children_cnt
+ 
+```{r plot7, echo=FALSE}
+ggplot(train_df, aes(srch_children_cnt)) + geom_bar(fill = "red")
+```
+
+## srch_rm_cnt
+ 
+```{r plot8, echo=FALSE}
+ggplot(train_df, aes(srch_rm_cnt)) + geom_bar(fill = "red")
+```
+
+## hotel_cluster
+
+```{r plot9, echo=FALSE}
+ggplot(train_df, aes(hotel_cluster)) + geom_bar(fill = "blue") 
+```
+ 
