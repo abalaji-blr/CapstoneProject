@@ -1,0 +1,90 @@
+---
+title: "expediaEDA2"
+author: "Anandan Balaji"
+date: "13 May 2016"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Expedia Hotel Recommendation - Data Anyalysis
+
+This document shows the charts related to different fields in the training data set.
+
+
+```{r }
+# read 25 K
+train_df <- read.csv(file = "train.25000.csv")
+
+library(ggplot2)
+```
+
+ 
+## posa_continent (user location) and hotel_continent (desitnation location)
+
+The below chart shows that the people from continent #3 travel a lot and prefer visiting continent #2.
+
+```{r plot1 }
+ggplot(train_df, aes(posa_continent, fill = factor(hotel_continent))) + geom_bar(position = "dodge")
+```
+
+ ## srch_adults_cnt, srch_children_cnt
+```{r}
+keys <- c("date_time", "user_id")
+
+adult_df <- train_df[keys]
+adult_df$count <- train_df$srch_adults_cnt
+adult_df$type <- "Adult"
+
+child_df <- train_df[keys]
+child_df$count <- train_df$srch_children_cnt
+child_df$type <- "Children"
+
+adult_child_df <- rbind(adult_df, child_df)
+
+#ggplot(adult_child_df, aes(x = user_id, y = count, col = factor(type))) +
+#  geom_line()
+
+# how to change the scale in x-axis to 0, 1, 2, 3 etc.?
+ggplot(adult_child_df, aes(count, col = factor(type))) + geom_freqpoly()
+```
+
+## source and destination country
+```{r}
+
+src_df <- train_df[keys]
+src_df$country <- train_df$user_location_country
+src_df$ctype <- "User Country"
+
+dest_df <- train_df[keys]
+dest_df$country <- train_df$hotel_country
+dest_df$ctype <- "Dest Country"
+
+country_df <- rbind(src_df, dest_df)
+
+ggplot(country_df, aes(country, col = factor(ctype))) + 
+  geom_freqpoly()
+```
+
+## number of days stay : srch_co - srch_ci (checkout - checkin date)
+
+```{r}
+ggplot(train_df, 
+       aes(factor(as.Date(as.character(train_df$srch_co), format = "%Y-%m-%d") -                           as.Date(as.character(train_df$srch_ci), format = "%Y-%m-%d")))) +
+        geom_bar(col = "blue") +
+        xlab("hotel stay in days")
+```
+
+
+## hotel_continent & hotel_cluster
+
+There are more number of hotel_clusters in the continent #2 and #6.
+
+```{r}
+ggplot(train_df, 
+       aes(x = hotel_cluster, y = hotel_continent, col = factor(hotel_continent))) +       # to avoid over plotting    
+  geom_jitter(alpha = 0.7) +
+      geom_smooth(method = "lm", se = F)
+```
