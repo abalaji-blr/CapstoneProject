@@ -24,60 +24,60 @@ library(ggplot2)
 
 ## site_name
 
-```{r plot0, echo=FALSE}
+```{r plot0}
 ggplot(train_df, aes(site_name)) + geom_bar(fill = "purple")
 ```
 
 ## posa_continent - current user location
-```{r plot1, echo=FALSE}
+```{r plot1}
 ggplot(train_df, aes(posa_continent)) + geom_bar(fill = "brown")
 ```
 
 ## hotel_continent - destination location
 
-```{r plot2, echo=FALSE}
+```{r plot2}
 ggplot(train_df, aes(hotel_continent)) + geom_bar(fill = "green")
 ```
 
 ## user_id
 
-```{r plot3, echo=FALSE}
+```{r plot3}
 ggplot(train_df, aes(user_id)) + geom_bar(fill = "blue")
 ```
 
 ## is_mobile 
 
-```{r plot4, echo=FALSE}
+```{r plot4}
 ggplot(train_df, aes(is_mobile)) + geom_bar(fill = "orange")
 ```
 
 ## is_package - hotel / hotel + air
  
-```{r plot5, echo=FALSE}
+```{r plot5}
 ggplot(train_df, aes(is_package)) + geom_bar(fill = "green")
 ```
 
 ## srch_adults_cnt
 
-```{r plot6, echo=FALSE}
+```{r plot6}
 ggplot(train_df, aes(srch_adults_cnt)) + geom_bar(fill = "red")
 ```
 
 ## srch_children_cnt
  
-```{r plot7, echo=FALSE}
+```{r plot7}
 ggplot(train_df, aes(srch_children_cnt)) + geom_bar(fill = "red")
 ```
 
 ## srch_rm_cnt
  
-```{r plot8, echo=FALSE}
+```{r plot8}
 ggplot(train_df, aes(srch_rm_cnt)) + geom_bar(fill = "red")
 ```
 
 ## hotel_cluster
 
-```{r plot9, echo=FALSE}
+```{r plot9}
 ggplot(train_df, aes(hotel_cluster)) + geom_bar(fill = "blue") 
 ```
  
