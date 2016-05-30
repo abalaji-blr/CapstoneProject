@@ -1,14 +1,21 @@
+## History
+# 0: inital algo using srch_destination_id
+# 1: incorporate the mapk(mean average precision) to measure the prediction.
 
+###########################################################
 ## read the training and test data set
 
 library(data.table)
 # fread() returns a data.table
-system.time(train_dt <- fread("train.25000.csv", header = TRUE))
+system.time(train_dt <- fread("train.csv", header = TRUE))
 
-system.time(test_dt <- fread("test.1000.csv", header = TRUE))
+#system.time(test_dt <- fread("new_test.csv", header = TRUE))
+
+system.time(test_dt <- fread("test.csv", header = TRUE))
 
 #temp_dt = train_dt[, list(srch_destination_id, hotel_cluster)]
 
+###########################################################
 ## get the total number of oberservations for each - dest_id & hotel_cluster
 ## use data.table notation of doing J expr BY group - refer to datacamp's cheat sheet.
 ## The total observation count is avaliable with column name "N"
@@ -19,10 +26,7 @@ dest_id_n_hotel_cluster_grp_count = train_dt[, .N, by = list(srch_destination_id
 
 # inputs : hotel_cluster and frequency (occurrence, n)
 get_top_five <- function(hc, n) {
-  #print("input:")
-  #print(hc)
-  #print("freq")
-  #print(n)
+ 
   # get the ordered list interms of freq. 
   # so sort them in decreasing order
   hc_ordered <- hc[order(n, decreasing = TRUE)]
@@ -52,6 +56,90 @@ result_dt <- recommended_hc[order(id), list(id, V1)]
 ## set the col names
 setnames(result_dt, c("id", "hotel_cluster"))
 
+###########################################################
+## for every user_id and srch_destination_id  if the hotel cluster exists, 
+## and the booking is done then use as first preference for prediction.
+#temp_dt = train_dt[, list(user_id, srch_destination_id, hotel_cluster)]
+
+temp1_dt = train_dt[, list(user_id, srch_destination_id, hotel_cluster, is_booking =1)]
+
+temp2_dt = temp1_dt[, .N, by = list(user_id, srch_destination_id, hotel_cluster)]
+
+
+temp3_dt  = temp2_dt[ ,get_top_five(hotel_cluster, N), by=list(user_id, srch_destination_id)]
+
+recommended2_hc <- merge(test_dt, temp3_dt, by = c("user_id", "srch_destination_id"), all.x = TRUE)
+
+# extract the id and hotel clusters
+result2_dt <- recommended2_hc[order(id), list(id, V1)]
+
+## set the col names
+setnames(result2_dt, c("id", "hotel_cluster"))
+
+###########################################################
+## combine the result hotel recommendation.
+##
+combine_dt = result_dt
+combine_dt$new_hotel_cluster = paste(result2_dt$hotel_cluster, result_dt$hotel_cluster)
+
+#apply(combine_dt, 1, function(x) paste(na.omit(x),collapse=", ") )
+## NAs are introdued by paste().
+#replace NA with empty string.
+replace_NA <- function(hc) {
+  hc_mod <- gsub("NA", "", hc)
+  hc_mod
+}
+
+# reset the column
+combine_dt$hotel_cluster = NULL
+combine_dt$hotel_cluster = combine_dt$new_hotel_cluster
+combine_dt$new_hotel_cluster = NULL
+
+#combine_temp_dt <- combine_dt[ ,replace_NA(hotel_cluster), by = list(id)]
+#names(combine_temp_dt)[2] <- "hotel_cluster"
+
+get_unique_five <- function(hc) {
+  temp <- unlist(strsplit(hc, " "))
+
+  temp_unique <- unique(temp)
+  # ignore NA
+  hc_unique <- temp_unique[temp_unique != "NA"]
+  #print(hc_unique)
+  result <- min(5, length(hc_unique))
+  paste(hc_unique[1:result],  collapse = " ")  
+}
+
+combine_temp_dt <- combine_dt[, get_unique_five(hotel_cluster), by=list(id)]
+names(combine_temp_dt)[2] <- "hotel_cluster"
+
+final_dt <- combine_temp_dt[, replace_NA(hotel_cluster), by=list(id)]
+
+names(final_dt)[2] <- "hotel_cluster"
+ 
+
+###########################################################
+## create the submission file
+##
+
 ## write the csv file
-write.csv(result_dt, file = "expedia_submission.csv", row.names = FALSE, quote = FALSE)
+write.csv(final_dt, file = "expedia_submission.csv", row.names = FALSE, quote = FALSE)
+
+################################ Measure Prediction ######################
+##for mapk - mean average precision
+# library(Metrics)
+# 
+# ## get the predicted list
+# system.time(predicted_dt <- fread("expedia_submission.csv", header = TRUE))
+# 
+# convert_to_list <- function(record) {
+#   hc <- record[2]
+#   #print(hc)
+#   x <- as.integer(unlist(strsplit(hc, " ")))
+#   #print(x)
+#   x
+# }
+# 
+# predicted_list <- apply(predicted_dt, 1, convert_to_list)
+# mapk(5, target_list, predicted_list)
+
 
