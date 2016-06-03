@@ -7,11 +7,11 @@
 
 library(data.table)
 # fread() returns a data.table
-system.time(train_dt <- fread("train.csv", header = TRUE))
-
+#system.time(train_dt <- fread("new_train.csv", header = TRUE))
 #system.time(test_dt <- fread("new_test.csv", header = TRUE))
 
-system.time(test_dt <- fread("test.csv", header = TRUE))
+system.time(train_dt <- fread("train.25000.csv", header = TRUE))
+system.time(test_dt <- fread("test.1000.csv", header = TRUE))
 
 #temp_dt = train_dt[, list(srch_destination_id, hotel_cluster)]
 
@@ -57,6 +57,12 @@ result_dt <- recommended_hc[order(id), list(id, V1)]
 setnames(result_dt, c("id", "hotel_cluster"))
 
 ###########################################################
+# Exact matches : 
+#    a) user_id and srch_desination_id => use the previously used hotel cluster
+#    b) orig_destination_distance is same => use the previously used hotel cluster
+###########################################################
+
+###########################################################
 ## for every user_id and srch_destination_id  if the hotel cluster exists, 
 ## and the booking is done then use as first preference for prediction.
 #temp_dt = train_dt[, list(user_id, srch_destination_id, hotel_cluster)]
@@ -73,8 +79,42 @@ recommended2_hc <- merge(test_dt, temp3_dt, by = c("user_id", "srch_destination_
 # extract the id and hotel clusters
 result2_dt <- recommended2_hc[order(id), list(id, V1)]
 
+# these are huge dataframes, remove them to release the memory.
+rm("temp1_dt", "temp2_dt", "temp3_dt", "recommended2_hc")
+
 ## set the col names
 setnames(result2_dt, c("id", "hotel_cluster"))
+
+##########################################################
+## b) if user_origination_distance is same, then use the previously used hotel cluster
+##########################################################
+
+#t1_dt = train_dt[, list(orig_destination_distance, hotel_cluster, is_booking==1)]
+
+# don't consider is_booking for now
+t1_dt = train_dt[, list(orig_destination_distance, hotel_cluster)]
+
+t2_dt = t1_dt[, .N, by = list(orig_destination_distance, hotel_cluster)]
+
+# get the freq
+t3_dt  = t2_dt[ ,get_top_five(hotel_cluster, N), by=orig_destination_distance]
+
+# ignore if dest distance is NA
+t4_dt = t3_dt[complete.cases(t3_dt),]
+
+merge_dt <- merge(test_dt, t4_dt, by = "orig_destination_distance", all.x = TRUE)
+
+# extract the id and hotel clusters
+result3_dt <- merge_dt[order(id), list(id, V1)]
+
+# these are huge dataframes, remove them to release the memory.
+rm("t1_dt", "t2_dt", "t3_dt", "t4_dt", "merge_dt")
+
+## set the col names
+setnames(result3_dt, c("id", "hotel_cluster"))
+
+
+
 
 ###########################################################
 ## combine the result hotel recommendation.
@@ -124,8 +164,8 @@ names(final_dt)[2] <- "hotel_cluster"
 ## write the csv file
 write.csv(final_dt, file = "expedia_submission.csv", row.names = FALSE, quote = FALSE)
 
-################################ Measure Prediction ######################
-##for mapk - mean average precision
+# ################################ Measure Prediction ######################
+# ##for mapk - mean average precision
 # library(Metrics)
 # 
 # ## get the predicted list

@@ -68,11 +68,16 @@ result_dt <- recommended_hc[order(id), list(id, V1)]
 setnames(result_dt, c("id", "hotel_cluster"))
 
 ###########################################################
-## for every user_id and srch_destination_id  if the hotel cluster exists, 
+# Exact matches : 
+#    a) user_id and srch_desination_id => use the previously used hotel cluster
+#    b) orig_destination_distance is same => use the previously used hotel cluster
+###########################################################
+
+## a) for every user_id and srch_destination_id  if the hotel cluster exists, 
 ## and the booking is done then use as first preference for prediction.
 #temp_dt = train_dt[, list(user_id, srch_destination_id, hotel_cluster)]
 
-temp1_dt = train_dt[, list(user_id, srch_destination_id, hotel_cluster, is_booking =1)]
+temp1_dt = train_dt[, list(user_id, srch_destination_id, hotel_cluster, is_booking ==1)]
 
 temp2_dt = temp1_dt[, .N, by = list(user_id, srch_destination_id, hotel_cluster)]
 
@@ -87,11 +92,37 @@ result2_dt <- recommended2_hc[order(id), list(id, V1)]
 ## set the col names
 setnames(result2_dt, c("id", "hotel_cluster"))
 
+##########################################################
+## b) if user_origination_distance is same, then use the previously used hotel cluster
+##########################################################
+
+#temp3_dt = train_dt[, list(orig_destination_distance, hotel_cluster, is_booking==1)]
+
+# don't consider is_booking for now
+t1_dt = train_dt[, list(orig_destination_distance, hotel_cluster)]
+
+t2_dt = t1_dt[, .N, by = list(orig_destination_distance, hotel_cluster)]
+
+# get the freq
+t3_dt  = t2_dt[ ,get_top_five(hotel_cluster, N), by=orig_destination_distance]
+
+# ignore if dest distance is NA
+t4_dt = t3_dt[complete.cases(t3_dt),]
+
+merge_dt <- merge(test_dt, t4_dt, by = "orig_destination_distance", all.x = TRUE)
+
+# extract the id and hotel clusters
+result3_dt <- merge_dt[order(id), list(id, V1)]
+
+## set the col names
+setnames(result3_dt, c("id", "hotel_cluster"))
+
 ###########################################################
 ## combine the result hotel recommendation.
 ##
 combine_dt = result_dt
 combine_dt$new_hotel_cluster = paste(result2_dt$hotel_cluster, result_dt$hotel_cluster)
+combine_dt$new_hotel_cluster = paste(result3_dt$hotel_cluster, combine_dt$new_hotel_cluster)
 
 #apply(combine_dt, 1, function(x) paste(na.omit(x),collapse=" ") )
 
