@@ -19,7 +19,18 @@ system.time(test_dt <- fread("test.1000.csv", header = TRUE))
 ## get the total number of oberservations for each - dest_id & hotel_cluster
 ## use data.table notation of doing J expr BY group - refer to datacamp's cheat sheet.
 ## The total observation count is avaliable with column name "N"
-dest_id_n_hotel_cluster_grp_count = train_dt[, .N, by = list(srch_destination_id, hotel_cluster)]
+##dest_id_n_hotel_cluster_grp_count = train_dt[, .N, by = list(srch_destination_id, hotel_cluster)]
+
+## based on is_booking, give weightage to the hotel cluster
+## if is_booking == 1 then weightage = 1
+## else weightage = 0.15
+## any other magic weightage numbers?
+##
+compute_weightage <- function(booking_flag) {
+  sum(booking_flag) * 0.85 + length(booking_flag) * 0.15
+}
+
+dest_id_n_hotel_cluster_grp_count = train_dt[, compute_weightage(is_booking), by = list(srch_destination_id, hotel_cluster)]
 
 
 ## need to get the top 5 often used hotel cluster for each dest_id.
@@ -41,7 +52,9 @@ get_top_five <- function(hc, n) {
   
 ## again use the J expr and BY group of data table  
 ## The package data.table creates the column with name V1
-dest_id_n_top_5_hotel_cluster = dest_id_n_hotel_cluster_grp_count[ ,get_top_five(hotel_cluster, N), by=srch_destination_id]
+#dest_id_n_top_5_hotel_cluster = dest_id_n_hotel_cluster_grp_count[ ,get_top_five(hotel_cluster, N), by=srch_destination_id]
+dest_id_n_top_5_hotel_cluster = dest_id_n_hotel_cluster_grp_count[ ,get_top_five(hotel_cluster, V1), by=srch_destination_id]
+
 
 ## Now, look at the test data set and if the dest_id matches,
 ## recommend the predicted hotel cluster
@@ -67,23 +80,23 @@ setnames(result_dt, c("id", "hotel_cluster"))
 ## and the booking is done then use as first preference for prediction.
 #temp_dt = train_dt[, list(user_id, srch_destination_id, hotel_cluster)]
 
-temp1_dt = train_dt[, list(user_id, srch_destination_id, hotel_cluster, is_booking =1)]
-
-temp2_dt = temp1_dt[, .N, by = list(user_id, srch_destination_id, hotel_cluster)]
-
-
-temp3_dt  = temp2_dt[ ,get_top_five(hotel_cluster, N), by=list(user_id, srch_destination_id)]
-
-recommended2_hc <- merge(test_dt, temp3_dt, by = c("user_id", "srch_destination_id"), all.x = TRUE)
-
-# extract the id and hotel clusters
-result2_dt <- recommended2_hc[order(id), list(id, V1)]
-
-# these are huge dataframes, remove them to release the memory.
-rm("temp1_dt", "temp2_dt", "temp3_dt", "recommended2_hc")
-
-## set the col names
-setnames(result2_dt, c("id", "hotel_cluster"))
+# temp1_dt = train_dt[, list(user_id, srch_destination_id, hotel_cluster, is_booking =1)]
+# 
+# temp2_dt = temp1_dt[, .N, by = list(user_id, srch_destination_id, hotel_cluster)]
+# 
+# 
+# temp3_dt  = temp2_dt[ ,get_top_five(hotel_cluster, N), by=list(user_id, srch_destination_id)]
+# 
+# recommended2_hc <- merge(test_dt, temp3_dt, by = c("user_id", "srch_destination_id"), all.x = TRUE)
+# 
+# # extract the id and hotel clusters
+# result2_dt <- recommended2_hc[order(id), list(id, V1)]
+# 
+# # these are huge dataframes, remove them to release the memory.
+# rm("temp1_dt", "temp2_dt", "temp3_dt", "recommended2_hc")
+# 
+# ## set the col names
+# setnames(result2_dt, c("id", "hotel_cluster"))
 
 ##########################################################
 ## b) if user_origination_distance is same, then use the previously used hotel cluster
@@ -92,12 +105,14 @@ setnames(result2_dt, c("id", "hotel_cluster"))
 #t1_dt = train_dt[, list(orig_destination_distance, hotel_cluster, is_booking==1)]
 
 # don't consider is_booking for now
-t1_dt = train_dt[, list(orig_destination_distance, hotel_cluster)]
+t1_dt = train_dt[, list(orig_destination_distance, hotel_cluster, is_booking)]
 
-t2_dt = t1_dt[, .N, by = list(orig_destination_distance, hotel_cluster)]
+##t2_dt = t1_dt[, .N, by = list(orig_destination_distance, hotel_cluster)]
+t2_dt = t1_dt[, compute_weightage(is_booking), by = list(orig_destination_distance, hotel_cluster)]
 
 # get the freq
-t3_dt  = t2_dt[ ,get_top_five(hotel_cluster, N), by=orig_destination_distance]
+#t3_dt  = t2_dt[ ,get_top_five(hotel_cluster, N), by=orig_destination_distance]
+t3_dt  = t2_dt[ ,get_top_five(hotel_cluster, V1), by=orig_destination_distance]
 
 # ignore if dest distance is NA
 t4_dt = t3_dt[complete.cases(t3_dt),]
@@ -120,23 +135,22 @@ setnames(result3_dt, c("id", "hotel_cluster"))
 ## combine the result hotel recommendation.
 ##
 combine_dt = result_dt
-combine_dt$new_hotel_cluster = paste(result2_dt$hotel_cluster, result_dt$hotel_cluster)
-
-#apply(combine_dt, 1, function(x) paste(na.omit(x),collapse=", ") )
-## NAs are introdued by paste().
-#replace NA with empty string.
-replace_NA <- function(hc) {
-  hc_mod <- gsub("NA", "", hc)
-  hc_mod
-}
+#combine_dt$new_hotel_cluster = paste(result2_dt$hotel_cluster, result_dt$hotel_cluster)
+combine_dt$new_hotel_cluster = paste(result3_dt$hotel_cluster, combine_dt$hotel_cluster)
 
 # reset the column
 combine_dt$hotel_cluster = NULL
 combine_dt$hotel_cluster = combine_dt$new_hotel_cluster
 combine_dt$new_hotel_cluster = NULL
 
-#combine_temp_dt <- combine_dt[ ,replace_NA(hotel_cluster), by = list(id)]
-#names(combine_temp_dt)[2] <- "hotel_cluster"
+
+# #apply(combine_dt, 1, function(x) paste(na.omit(x),collapse=", ") )
+# ## NAs are introdued by paste().
+# 
+# 
+# 
+# #combine_temp_dt <- combine_dt[ ,replace_NA(hotel_cluster), by = list(id)]
+# #names(combine_temp_dt)[2] <- "hotel_cluster"
 
 get_unique_five <- function(hc) {
   temp <- unlist(strsplit(hc, " "))
@@ -151,6 +165,12 @@ get_unique_five <- function(hc) {
 
 combine_temp_dt <- combine_dt[, get_unique_five(hotel_cluster), by=list(id)]
 names(combine_temp_dt)[2] <- "hotel_cluster"
+
+#replace NA with empty string.
+replace_NA <- function(hc) {
+  hc_mod <- gsub("NA", "", hc)
+  hc_mod
+}
 
 final_dt <- combine_temp_dt[, replace_NA(hotel_cluster), by=list(id)]
 
