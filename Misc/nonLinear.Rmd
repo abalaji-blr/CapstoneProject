@@ -1,0 +1,22 @@
+---
+title: "NonLinear"
+output: html_document
+---
+
+```{r echo = FALSE, results = FALSE, message=FALSE}
+library(data.table)
+train_dt <- fread("train.csv", header = TRUE)
+library(ggplot2)
+```
+
+```{r}
+library(rpart)
+frmla = hotel_cluster ~ srch_destination_id + user_location_region + orig_destination_distance
+ctrl = rpart.control(minSplit=5, minbucket = 50)
+
+expediaTreeModel = rpart(frmla, data = train_dt, method = "class", control=ctrl )
+
+# get the cp - complexity factor
+printcp(expediaTreeModel)
+#summary(expediaTreeModel)
+```
