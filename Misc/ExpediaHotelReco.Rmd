@@ -1,0 +1,214 @@
+---
+title: "Expedia Hotel Recommendation"
+author: "Anandan Balaji"
+date: "7 June 2016"
+output:
+  html_document:
+    number_sections: 2
+    toc: yes
+---
+
+# Introduction
+
+The objective of **Expedia Hotel Recommendation** is to predict the **hotel cluster** for the user. The hotel clusters are numbered based on many parameters like  distance for the city center, amenities like swimming pool, gym etc. They are in the range 1 to 100.
+
+
+# Deep Dive into Dataset
+
+## Data Files
+The following are the data files provided.
+
+* **train.csv** - the training dataset
+* **test.csv** - the test dataset
+* **destinations.csv** - hotel search latent attributes
+* **sample_submission.csv** - the sample submission file in the correct format
+
+## Important Fields in the dataset
+
+The following are the important fields which are available in the **training** dataset.
+
+* **date_time** - TimeStamp
+* `user location info`
+     * **posa_continent** - ID of the continent
+     * **user_location_contry** - ID of the country where the customer is located
+     * **user_location_region** - ID of the region where the customer is located
+     * **user_location_city** - ID of the city where the customer is located
+* **orig_destination_distance** - Physical distance between the hotel and customer at the time of search
+* `stay information`
+     * **srch_ci** - Checkin date
+     * **srch_co** - Checkout date
+     * **srch_adults_cnt** - Number of adults
+     * **srch_childrens_cnt** - Number of childrens
+     * **srch_rm_cnt** - Number of rooms requested in the search
+* `destination hotel info`
+     * **srch_destination_id** - ID of the destination hotel
+     * **hotel_continent** - Hotel continent
+     * **hotel_country**  - Hotel Country
+* **is_booking** - 1 if a booking, 0 if a click.
+* **cnt** - Number of similar events in the context of same user session.
+* **hotel_cluster** - ID of the hotel cluster
+
+Also the **destinations.csv** has the following information.  
+
+* **srch_destination_id** - ID of the destination hotel
+* **d1-d149** - latent description of search regions
+
+## Submission File
+
+For every user event, we need to predict a space-delimited list of the hotel clusters they booked. we may submit up to 5 predictions for each user event. The file should contain a header and have the following format:
+
+id,hotel_cluster
+0,99 3 1 75 20
+1,2 50 30 23 9
+etc...
+
+## Limitations of the Dataset
+1. The `user location info` ( continent/country/city) and `destination hotel location` (continent/country) are **integer values**. There is no mapping available about the integer values to appripriate cities.
+2. The `destination data file` has the information about the hotels in terms of **150 attributes** and they are of **nunerical** value. There is no mapping available for this one as well.
+
+
+# Exploring the data
+## Downsampling the training dataset
+
+The **training** dataset has 37M records with 4GB in size. we can't load the complete training datset in a normal computer. Need a better machine with atleast 16GB RAM size.
+
+The following are some ways to deal with big data set.
+
+  *  **sample the training data** - Use CATools package to create a smaller dataset by sampling as below. Note that the sampling will help in the early explorations. But for **final analysis and prediction, we have to run the complete training and test dataset**. 
+  
+```{r eval = FALSE}
+# for splitting the training data 
+library(caTools)
+
+system.time(train_dt <- fread("train.csv", header = TRUE))
+
+#to make it reproducible
+set.seed(123)
+
+## specify the column name
+split = sample.split(train_dt$hotel_cluster, SplitRatio = 0.75)
+
+new_train_dt = subset(train_dt, split == TRUE)
+new_test_dt  = subset(train_dt, split == FALSE)
+
+write.csv(new_train_dt, file = "new_train.csv", row.names = FALSE, quote = FALSE)
+write.csv(new_test_dt, file = "new_test.csv", row.names = TRUE, quote = FALSE)
+```
+
+
+  *  **Use fread()** - The fread() from `data.table` package is faster than the read.csv() function.
+```{r echo = FALSE, results = FALSE}
+library(data.table)
+train_dt <- fread("train.csv", header = TRUE)
+library(ggplot2)
+```
+```{r echo = FALSE, message = FALSE}
+test_dt <- fread("test.csv")
+```
+## Examine the Date info  
+
+Let's take a look at the date info in the **training** dataset.
+
+```{r}
+train_dt$year <- as.numeric(format(as.Date(train_dt$date_time, "%Y-%m-%d"), "%Y"))
+unique(train_dt$year)
+```
+
+Examine the records in the **test** data.
+
+
+```{r}
+test_dt$year <- as.numeric(format(as.Date(test_dt$date_time, "%Y-%m-%d"), "%Y"))
+unique(test_dt$year)
+```
+
+## Does the destination id specified in the **test** data present in the training data?
+
+```{r}
+# get the size of the destination id list for test data
+test_dest_list_len <- length(unique(test_dt$srch_destination_id))
+test_dest_list_len
+
+intersect_list_len <- length(intersect(test_dt$srch_destination_id, train_dt$srch_destination_id))
+intersect_list_len
+
+test_dest_list_len == intersect_list_len
+```
+
+## Charts
+
+
+### The user's current location and the destination hotel location
+
+The  posa_continent is user current location at the time of booking and  the hotel_continent is the desitnation location.
+
+ 
+```{r }
+ggplot(train_dt, aes(posa_continent, fill = factor(hotel_continent))) + geom_bar(position = "dodge")
+```
+
+### Spread of hotel clusters in different continents.
+
+
+```{r}
+# ggplot(train_dt, 
+#        aes(x = hotel_cluster, y = hotel_continent, col = factor(hotel_continent))) +       # to avoid over plotting    
+#   geom_jitter(alpha = 0.7) +
+#       geom_smooth(method = "lm", se = F)
+```
+
+# Approach to solution
+## Correlation Info of hotel_cluster with rest of attributes.
+
+```{r}
+cor(train_dt$hotel_cluster, train_dt$srch_destination_id)
+cor(train_dt$hotel_cluster, train_dt$posa_continent)
+cor(train_dt$hotel_cluster, train_dt$user_location_country)
+cor(train_dt$hotel_cluster, train_dt$user_location_region)
+cor(train_dt$hotel_cluster, train_dt$user_location_city)
+cor(train_dt$hotel_cluster, train_dt$orig_destination_distance)
+cor(train_dt$hotel_cluster, train_dt$user_id)
+cor(train_dt$hotel_cluster, train_dt$is_package)
+#cor(train_dt$hotel_cluster, train_dt$srch_ci)
+#cor(train_dt$hotel_cluster, train_dt$srch_co)
+cor(train_dt$hotel_cluster, train_dt$srch_adults_cnt)
+
+cor(train_dt$hotel_cluster, train_dt$srch_children_cnt)
+cor(train_dt$hotel_cluster, train_dt$srch_rm_cnt)
+cor(train_dt$hotel_cluster, train_dt$srch_destination_id)
+cor(train_dt$hotel_cluster, train_dt$srch_destination_type_id)
+cor(train_dt$hotel_cluster, train_dt$is_booking)
+cor(train_dt$hotel_cluster, train_dt$cnt)
+cor(train_dt$hotel_cluster, train_dt$hotel_continent)
+cor(train_dt$hotel_cluster, train_dt$hotel_country)
+cor(train_dt$hotel_cluster, train_dt$hotel_market)
+```
+
+## Linear Model
+
+```{r}
+model = lm(hotel_cluster ~ srch_destination_id + srch_destination_type_id + is_booking + cnt + orig_destination_distance + user_location_country + user_location_region + is_mobile + is_package + hotel_continent + hotel_country + hotel_market, data= train_dt)
+summary(model)
+
+
+#to avoid multi colinearity, try different model
+model2 = lm(hotel_cluster ~ srch_destination_id + cnt + orig_destination_distance + user_location_region + hotel_country + hotel_market, data=train_dt)
+summary(model2)
+```
+
+## Non Linear Model
+
+
+```{r}
+# library(rpart)
+# frmla = hotel_cluster ~ srch_destination_id + user_location_region + orig_destination_distance 
+# ctrl = rpart.control(minSplit=5, minbucket = 50)
+# 
+# expediaTreeModel = rpart(frmla, data = train_dt, method = "class", control=ctrl )
+# 
+# # get the cp - complexity factor
+# printcp(expediaTreeModel)
+#summary(expediaTreeModel)
+```
+
+
