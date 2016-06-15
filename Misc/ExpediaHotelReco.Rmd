@@ -3,6 +3,9 @@ title: "Expedia Hotel Recommendation"
 author: "Anandan Balaji"
 date: "7 June 2016"
 output:
+  pdf_document:
+    toc: yes
+    number_sections: 2
   html_document:
     number_sections: 2
     toc: yes
@@ -16,7 +19,7 @@ The objective of **Expedia Hotel Recommendation** is to predict the **hotel clus
 # Deep Dive into Dataset
 
 ## Data Files
-The following are the data files provided.
+The following are the data files provided. They can be accessed from the following *kaggle location * (www.kaggle.com/c/expedia-hotel-recommendations/data).
 
 * **train.csv** - the training dataset
 * **test.csv** - the test dataset
@@ -53,13 +56,16 @@ Also the **destinations.csv** has the following information.
 * **srch_destination_id** - ID of the destination hotel
 * **d1-d149** - latent description of search regions
 
-## Submission File
+## Format of Submission File
 
 For every user event, we need to predict a space-delimited list of the hotel clusters they booked. we may submit up to 5 predictions for each user event. The file should contain a header and have the following format:
 
 id,hotel_cluster
+
 0,99 3 1 75 20
+
 1,2 50 30 23 9
+
 etc...
 
 ## Limitations of the Dataset
@@ -68,11 +74,11 @@ etc...
 
 
 # Exploring the data
-## Downsampling the training dataset
+## Sampling the training dataset
 
-The **training** dataset has 37M records with 4GB in size. we can't load the complete training datset in a normal computer. Need a better machine with atleast 16GB RAM size.
+The **training** dataset has 37M records with 4GB in size. Because of the huge dataset, we can't load the complete training datset in a normal computer. We need to have a machine with atleast **16GB RAM** size.
 
-The following are some ways to deal with big data set.
+However, following are some ways to deal with the big data set for exploration and analysis.
 
   *  **sample the training data** - Use CATools package to create a smaller dataset by sampling as below. Note that the sampling will help in the early explorations. But for **final analysis and prediction, we have to run the complete training and test dataset**. 
   
@@ -99,13 +105,16 @@ write.csv(new_test_dt, file = "new_test.csv", row.names = TRUE, quote = FALSE)
   *  **Use fread()** - The fread() from `data.table` package is faster than the read.csv() function.
 ```{r echo = FALSE, results = FALSE}
 library(data.table)
-train_dt <- fread("train.csv", header = TRUE)
+train_dt <- fread("train.25000.csv", header = TRUE)
 library(ggplot2)
 ```
 ```{r echo = FALSE, message = FALSE}
-test_dt <- fread("test.csv")
+test_dt <- fread("test.1000.csv")
 ```
-## Examine the Date info  
+
+**Note: For this report, will use sampled training dataset, which has 25 thousand observations.**
+
+## Examining the Date info  
 
 Let's take a look at the date info in the **training** dataset.
 
@@ -122,23 +131,8 @@ test_dt$year <- as.numeric(format(as.Date(test_dt$date_time, "%Y-%m-%d"), "%Y"))
 unique(test_dt$year)
 ```
 
-## Does the destination id specified in the **test** data present in the training data?
 
-```{r}
-# get the size of the destination id list for test data
-test_dest_list_len <- length(unique(test_dt$srch_destination_id))
-test_dest_list_len
-
-intersect_list_len <- length(intersect(test_dt$srch_destination_id, train_dt$srch_destination_id))
-intersect_list_len
-
-test_dest_list_len == intersect_list_len
-```
-
-## Charts
-
-
-### The user's current location and the destination hotel location
+## User's current location and the destination hotel location
 
 The  posa_continent is user current location at the time of booking and  the hotel_continent is the desitnation location.
 
@@ -147,14 +141,14 @@ The  posa_continent is user current location at the time of booking and  the hot
 ggplot(train_dt, aes(posa_continent, fill = factor(hotel_continent))) + geom_bar(position = "dodge")
 ```
 
-### Spread of hotel clusters in different continents.
+## Spread of hotel clusters in different continents.
 
 
 ```{r}
-# ggplot(train_dt, 
-#        aes(x = hotel_cluster, y = hotel_continent, col = factor(hotel_continent))) +       # to avoid over plotting    
-#   geom_jitter(alpha = 0.7) +
-#       geom_smooth(method = "lm", se = F)
+ggplot(train_dt,
+       aes(x = hotel_cluster, y = hotel_continent, col = factor(hotel_continent))) +       # to avoid over plotting
+  geom_jitter(alpha = 0.7) +
+      geom_smooth(method = "lm", se = F)
 ```
 
 # Approach to solution
@@ -200,15 +194,31 @@ summary(model2)
 
 
 ```{r}
-# library(rpart)
-# frmla = hotel_cluster ~ srch_destination_id + user_location_region + orig_destination_distance 
-# ctrl = rpart.control(minSplit=5, minbucket = 50)
-# 
-# expediaTreeModel = rpart(frmla, data = train_dt, method = "class", control=ctrl )
-# 
-# # get the cp - complexity factor
-# printcp(expediaTreeModel)
+library(rpart)
+frmla = hotel_cluster ~ srch_destination_id + user_location_region + orig_destination_distance
+ctrl = rpart.control(minSplit=5, minbucket = 50)
+
+expediaTreeModel = rpart(frmla, data = train_dt, method = "class", control=ctrl )
+
+# get the cp - complexity factor
+printcp(expediaTreeModel)
 #summary(expediaTreeModel)
 ```
 
+## Data Analysis approach
 
+From the linear model results, the R-squared value is negligible. So, the dependent variables are correlating well. Using CART (Classification and Regression Tree) - the non linear model also illustrates that the dependent variables are not correlating well for this problem. These basic Machine Learning algorithms are not much of help for this problem.
+
+Another approach would be to try more advanced Machine Learning algorithms like random forest, XgBoost etc, which is outside the scope of this workshop. Also, we need better machine with **16 to 32 GB** size.
+
+Alternatively, we can follow the below heuristics / rules to identify the hotel cluster.
+
+### Identify the often used hotel cluster for a destination
+
+### Predict based on destination distance
+
+
+
+
+
+# Future Exploration and Study
