@@ -158,21 +158,23 @@ ggplot(train_dt,
 cor(train_dt$hotel_cluster, train_dt$srch_destination_id)
 cor(train_dt$hotel_cluster, train_dt$posa_continent)
 cor(train_dt$hotel_cluster, train_dt$user_location_country)
+
 cor(train_dt$hotel_cluster, train_dt$user_location_region)
 cor(train_dt$hotel_cluster, train_dt$user_location_city)
 cor(train_dt$hotel_cluster, train_dt$orig_destination_distance)
+
 cor(train_dt$hotel_cluster, train_dt$user_id)
 cor(train_dt$hotel_cluster, train_dt$is_package)
-#cor(train_dt$hotel_cluster, train_dt$srch_ci)
-#cor(train_dt$hotel_cluster, train_dt$srch_co)
 cor(train_dt$hotel_cluster, train_dt$srch_adults_cnt)
 
 cor(train_dt$hotel_cluster, train_dt$srch_children_cnt)
 cor(train_dt$hotel_cluster, train_dt$srch_rm_cnt)
 cor(train_dt$hotel_cluster, train_dt$srch_destination_id)
+
 cor(train_dt$hotel_cluster, train_dt$srch_destination_type_id)
 cor(train_dt$hotel_cluster, train_dt$is_booking)
 cor(train_dt$hotel_cluster, train_dt$cnt)
+
 cor(train_dt$hotel_cluster, train_dt$hotel_continent)
 cor(train_dt$hotel_cluster, train_dt$hotel_country)
 cor(train_dt$hotel_cluster, train_dt$hotel_market)
@@ -202,7 +204,6 @@ expediaTreeModel = rpart(frmla, data = train_dt, method = "class", control=ctrl 
 
 # get the cp - complexity factor
 printcp(expediaTreeModel)
-#summary(expediaTreeModel)
 ```
 
 ## Rule based approach
@@ -211,14 +212,119 @@ From the linear model results, the R-squared value is negligible. So, the depend
 
 The advanced machine learning algorithms like random forest, Xgboost etc. may be suitable for this problem. Also note that they may be better computing resources with huge RAM - 16GB to 32GB.
 
-Alternatively, we can predict the hotel cluster by formulating a list of rules.
+Alternatively, we can predict the hotel cluster by formulating a list of rules as below
 
-### Identify the often used hotel cluster for a destination
+### Rule 1: Identify the often used hotel cluster for a destination
 
-### Predict based on destination distance
+The idea is to identify the often used hotel cluster for a given destination. In our case, we have to identify the top five hotel cluster.
+
+Also the training dataset has `is_booking` flag, ie., `is_booking` is 1 for the confirmed booking and `is_booking` is 0 for the unconfrimed booking. So, while identifying top five, we can provide more weightage to the confirmed booking.
+
+ 
+```{r eval = FALSE}
+
+# get the training data
+train_dt <- fread("train.25000.csv", header = TRUE)
+test_dt <- fread("test.1000.csv", header = TRUE)
+
+## compute_weightage
+## based on is_booking, give weightage to the hotel cluster
+## if is_booking == 1 then weightage = 1
+## else weightage = 0.15
+compute_weightage <- function(booking_flag) {
+  sum(booking_flag) * 0.85 + length(booking_flag) * 0.15
+}
+
+# collect the srch_destination_id based on weightage of hotel_cluster
+# use data.table notation of doing J expr BY group
+dest_id_n_hotel_cluster_grp_count = train_dt[, compute_weightage(is_booking), by = list(srch_destination_id, hotel_cluster)]
+
+# get the top five
+# inputs : hotel_cluster and weightage
+get_top_five <- function(hc, n) {
+ 
+  # get the ordered list interms of freq. 
+  # so sort them in decreasing order
+  hc_ordered <- hc[order(n, decreasing = TRUE)]
+  #print(hc_ordered)
+  
+  # we need 5, if no match, we may get 0.
+  result <- min(5, length(hc_ordered))
+  
+  ## return the result with hc separated by spaces
+  paste(hc_ordered[1:result],  collapse = " ")
+}
+
+## again use the J expr and BY group of data table  
+## The package data.table creates the column with name V1
+dest_id_n_top_5_hotel_cluster = dest_id_n_hotel_cluster_grp_count[ ,get_top_five(hotel_cluster, V1), by=srch_destination_id]
+
+## Now, merge the test and top 5 clusters based on dest id.
+## recommend the predicted hotel cluster
+# use merge: specify both tables x & y
+#          : specify the column name for merge
+#          : in case of no match, add the row from x and put NA in the respective column.
+recommended_hc <- merge(test_dt, dest_id_n_top_5_hotel_cluster, by = "srch_destination_id", all.x = TRUE)
+
+## extract the id and hotel clusters
+result_dt <- recommended_hc[order(id), list(id, V1)]
+
+## set the col names
+setnames(result_dt, c("id", "hotel_cluster"))
+
+```
+
+### Rule 2: Predict based on destination distance
+
+Give importance for the booking when the distance between the customer and destination hotel ( `orig_destination_distance`) matches.
+
+```{r eval = FALSE}
+# create temporary data frame with the needed fields
+t1_dt = train_dt[, list(orig_destination_distance, hotel_cluster, is_booking)]
+
+# group them based on the is_booking flag with appropriate weights
+t2_dt = t1_dt[, compute_weightage(is_booking), by = list(orig_destination_distance, hotel_cluster)]
+
+# get the top five based on this rule
+t3_dt  = t2_dt[ ,get_top_five(hotel_cluster, V1), by=orig_destination_distance]
+
+# ignore if dest distance is NA
+t4_dt = t3_dt[complete.cases(t3_dt),]
+
+# merge test and training dataset.
+merge_dt <- merge(test_dt, t4_dt, by = "orig_destination_distance", all.x = TRUE)
+
+# extract the id and hotel clusters
+result3_dt <- merge_dt[order(id), list(id, V1)]
+
+## set the col names
+setnames(result3_dt, c("id", "hotel_cluster"))
+```
+
+
+### Combine the results
+
+Combine the results and identify the unique five by providing the precedence to the above rules. Below is the snapshot of the results.
+
+```{r eval = FALSE}
+id,hotel_cluster
+0,5 37 55 11 8
+1,5
+2,0 31 96 91 59
+3,1 45 79 24 54
+4,42 28 59 91 2
+5,91 42 16 48 33
+6,95 21 91 2 33
+7,95 91 18 68 98
+8,1 45 79 24 54
+...
+```
+
+The **complete R code** is available in the following github location (www.github.com/abalaji-blr/CapstoneProject/tree/master/Source/expedia_script.R).
+
+# Further Exploration and Study
+
+The advanced machine learning algorithms like random forest, XGBoost etc. need to be evaluated to see whether they help in resolving this problem.
 
 
 
-
-
-# Future Exploration and Study
