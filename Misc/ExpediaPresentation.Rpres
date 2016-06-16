@@ -1,0 +1,27 @@
+Expedia Hotel Recommendation
+========================================================
+author: Anandan Balaji
+date: June 16 2016
+autosize: true
+
+Overview
+========================================================
+
+- Problem Definition
+- Dataset
+- Possible solutions
+- Results
+
+Slide With Code
+========================================================
+
+```{r}
+#summary(cars)
+```
+
+Slide With Plot
+========================================================
+
+```{r, echo=FALSE}
+#plot(cars)
+```
