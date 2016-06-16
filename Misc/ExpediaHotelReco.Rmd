@@ -205,13 +205,13 @@ printcp(expediaTreeModel)
 #summary(expediaTreeModel)
 ```
 
-## Data Analysis approach
+## Rule based approach
 
-From the linear model results, the R-squared value is negligible. So, the dependent variables are correlating well. Using CART (Classification and Regression Tree) - the non linear model also illustrates that the dependent variables are not correlating well for this problem. These basic Machine Learning algorithms are not much of help for this problem.
+From the linear model results, the R-squared value is negligible. So, the dependent variables are *NOT* correlating well. Using the non linear model - CART (Classification and Regression Tree), which also illustrates that the dependent variables are not correlating well. In this case, these basic Machine Learning algorithms are not much of help for this problem.
 
-Another approach would be to try more advanced Machine Learning algorithms like random forest, XgBoost etc, which is outside the scope of this workshop. Also, we need better machine with **16 to 32 GB** size.
+The advanced machine learning algorithms like random forest, Xgboost etc. may be suitable for this problem. Also note that they may be better computing resources with huge RAM - 16GB to 32GB.
 
-Alternatively, we can follow the below heuristics / rules to identify the hotel cluster.
+Alternatively, we can predict the hotel cluster by formulating a list of rules.
 
 ### Identify the often used hotel cluster for a destination
 
