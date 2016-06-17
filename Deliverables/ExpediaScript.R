@@ -10,12 +10,12 @@ library(data.table)
 
 # for complete dataset
 
-#system.time(train_dt <- fread("new_train.csv", header = TRUE))
-#system.time(test_dt <- fread("new_test.csv", header = TRUE))
+system.time(train_dt <- fread("train.csv", header = TRUE))
+system.time(test_dt <- fread("test.csv", header = TRUE))
 
 # to read the sampled dataset
-system.time(train_dt <- fread("train.25000.csv", header = TRUE))
-system.time(test_dt <- fread("test.1000.csv", header = TRUE))
+#system.time(train_dt <- fread("new_train.csv", header = TRUE))
+#system.time(test_dt <- fread("new_test.csv", header = TRUE))
 
  
 ###########################################################
@@ -125,6 +125,7 @@ get_unique_five <- function(hc) {
   paste(hc_unique[1:result],  collapse = " ")  
 }
 
+# get the unique five clusters
 combine_temp_dt <- combine_dt[, get_unique_five(hotel_cluster), by=list(id)]
 names(combine_temp_dt)[2] <- "hotel_cluster"
 
